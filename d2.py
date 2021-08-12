@@ -6,6 +6,35 @@ from torch import nn, Tensor
 from typing import Callable, Tuple, Optional
 
 
+#added by DM - use custom linear normalization between 0 and 1 but sum !=1 
+def customSoftmax(x,exponent,dim):
+    e=torch.exp(x*exponent)
+    return e/torch.sum(e,dim)
+
+
+def customSoftmax2(x,exponent,dim):
+    e=torch.exp(x*exponent)
+    return e/torch.sum(e,dim,keepdim=True)
+
+
+def linearNormaliser(x): 
+    minimum = torch.min(x)
+    x -= minimum
+    maximum = torch.max(x)
+    x /= maximum
+    sums=torch.sum(x)
+    x /= sums    
+    return(x)
+
+
+def customSigmoid(x,exponent,dim):
+    e=1/(1+torch.exp(-x*exponent))
+    return e/torch.sum(e,dim)    
+
+
+
+
+
 def score_candidates(s_emb: Tensor,
                      p_emb: Tensor,
                      candidates_emb: Tensor,
@@ -114,7 +143,7 @@ def query_2p(entity_embeddings: nn.Module,
     return res
 
 
-def query_2pn(entity_embeddings: nn.Module,
+def query_2pn(temp1,temp2,entity_embeddings: nn.Module,
               predicate_embeddings: nn.Module,
               queries: Tensor,
               scoring_function: Callable[[Tensor, Tensor, Tensor], Tensor],
@@ -147,13 +176,26 @@ def query_2pn(entity_embeddings: nn.Module,
                                           entity_embeddings=entity_embeddings,
                                           scoring_function=scoring_function)
 
-    atom2_scores_2d = negation(atom2_scores_2d)
+    #added by DM
+    # atom2_scores_2d = negation(atom2_scores_2d)
+    # print('*****************HERE*******************')
+    # print(atom1_k_scores_2d.shape, atom2_scores_2d.shape )
+    # atom1_k_scores_2d = customSoftmax(atom1_k_scores_2d,temp1,dim=1)
+    # atom2_scores_2d   = customSoftmax(atom2_scores_2d,temp2,dim=1)
+
+    
 
     # [B, K] -> [B, K, N]
     atom1_scores_3d = atom1_k_scores_2d.reshape(batch_size, -1, 1).repeat(1, 1, nb_entities)
     # [B * K, N] -> [B, K, N]
     atom2_scores_3d = atom2_scores_2d.reshape(batch_size, -1, nb_entities)
 
+
+    # print(atom1_scores_3d.shape, atom2_scores_3d.shape)
+    atom1_scores_3d = customSoftmax2(atom1_scores_3d,temp1,dim=2)
+    atom2_scores_3d = customSoftmax2(atom2_scores_3d,temp2,dim=2)  
+    
+    
     res = t_norm(atom1_scores_3d, atom2_scores_3d)
 
     # [B, K, N] -> [B, N]
@@ -338,29 +380,13 @@ def query_2in(temp1,temp2,entity_embeddings: nn.Module,
                         queries=queries[:, 2:4], scoring_function=scoring_function)
 
 
-    #added by DM - use custom linear normalization between 0 and 1 but sum !=1 
-    def linearNormaliser(x): 
-        minimum = torch.min(x)
-        x -= minimum
-        maximum = torch.max(x)
-        x /= maximum
-        sums=torch.sum(x)
-        x /= sums    
-        return(x)
-    
-    def customSoftmax(x,exponent,dim):
-        e=torch.exp(x*exponent)
-        return e/torch.sum(e,dim)
-
-
-    def customSigmoid(x,exponent,dim):
-        e=1/(1+torch.exp(-x*exponent))
-        return e/torch.sum(e,dim)    
 
 
     #added by DM - normalize scores between 0 and 1, sum is 1
-    scores_1_original = torch.clone(scores_1)
-    scores_2_original = torch.clone(scores_2)
+    # scores_1_original = torch.clone(scores_1)
+    # scores_2_original = torch.clone(scores_2)
+    scores_1_original = 0
+    scores_2_original = 0
     
     # soft = torch.nn.Softmax(dim=1)
     # scores_1=soft(scores_1)
@@ -407,9 +433,7 @@ def query_2in(temp1,temp2,entity_embeddings: nn.Module,
     res = t_norm(scores_1, scores_2)
 
     #DM hack - need to see all scores
-    #return res
-    
-    
+    #return res 
     
     return res, scores_1, scores_2, scores_1_original, scores_2_original
 
@@ -434,17 +458,12 @@ def query_3in(temp1,temp2,entity_embeddings: nn.Module,
     scores_1_original = torch.clone(scores_1)
     scores_2_original = torch.clone(scores_2)
 
-    def customSoftmax(x,exponent,dim):
-        e=torch.exp(x*exponent)
-        return e/torch.sum(e,dim)
-
     scores_1=customSoftmax(scores_1,temp1,dim=1)
     scores_2=customSoftmax(scores_2,temp1,dim=1)  
     scores_3=customSoftmax(scores_3,temp2,dim=1)  
 
     res = t_norm(scores_1, scores_2)
     res = t_norm(res, scores_3)
-
     
     # return res
     return res, scores_1, scores_2, scores_1_original, scores_2_original
@@ -462,7 +481,7 @@ def query_inp(temp1,temp2,entity_embeddings: nn.Module,
     # scores_1 = query_2in(entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
                          # queries=queries[:, 0:4], scoring_function=scoring_function, t_norm=t_norm, negation=negation)
 
-    scores_1 = query_2in(temp1,temp2,entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
+    scores_1,_,_,_,_ = query_2in(temp1,temp2,entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
                          queries=queries[:, 0:4], scoring_function=scoring_function, t_norm=t_norm, negation=negation)
 
     # [B, E]
@@ -485,16 +504,16 @@ def query_inp(temp1,temp2,entity_embeddings: nn.Module,
     # [B, N, N]
     scores_1 = scores_1.reshape(batch_size, nb_entities, 1).repeat(1, 1, nb_entities)
     scores_2 = scores_2.reshape(batch_size, nb_entities, nb_entities)
-    
+
+  
     #added by DM
-    scores_1_original = torch.clone(scores_1)
-    scores_2_original = torch.clone(scores_2)
+    scores_2=customSoftmax(scores_2,temp1,dim=1)  
 
     res = t_norm(scores_1, scores_2)
     res, _ = torch.max(res, dim=1)
 
     # return res
-    return res, scores_1, scores_2, scores_1_original, scores_2_original 
+    return res, scores_1, scores_2, 0 , 0  
 
 
 def query_pin(temp1,temp2,entity_embeddings: nn.Module,
@@ -510,17 +529,9 @@ def query_pin(temp1,temp2,entity_embeddings: nn.Module,
     scores_2 = query_1p(entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
                         queries=queries[:, 3:5], scoring_function=scoring_function)
 
-#added by DM
-    scores_1_original = torch.clone(scores_1)
-    scores_2_original = torch.clone(scores_2)
 
-
-    def customSoftmax(x,exponent,dim):
-        e=torch.exp(x*exponent)
-        return e/torch.sum(e,dim)
-
-
-    scores_1=customSoftmax(scores_1,temp1,dim=1)
+    #2p query is already softmaxed
+    # scores_1=customSoftmax(scores_1,temp1,dim=1)
     scores_2=customSoftmax(scores_2,temp2,dim=1)  
 
     # scores_2 = negation(scores_2)
@@ -528,9 +539,9 @@ def query_pin(temp1,temp2,entity_embeddings: nn.Module,
     res = t_norm(scores_1, scores_2)
 
     # return res
-    return res, scores_1, scores_2, scores_1_original, scores_2_original 
+    return res, scores_1, scores_2, 0 , 0  
 
-def query_pni_v1(entity_embeddings: nn.Module,
+def query_pni_v1(temp1,temp2,entity_embeddings: nn.Module,
                  predicate_embeddings: nn.Module,
                  queries: Tensor,
                  scoring_function: Callable[[Tensor, Tensor, Tensor], Tensor],
@@ -543,11 +554,14 @@ def query_pni_v1(entity_embeddings: nn.Module,
     scores_2 = query_1p(entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
                         queries=queries[:, 4:6], scoring_function=scoring_function)
 
-    scores_1 = negation(scores_1)
+    # scores_1 = negation(scores_1)
+    #score 1 negated
+    scores_1=customSoftmax(scores_1,temp2,dim=1) 
+    scores_2=customSoftmax(scores_2,temp1,dim=1) 
 
     res = t_norm(scores_1, scores_2)
     # return res
-    return res, scores_1, scores_2, scores_1_original, scores_2_original 
+    return res, scores_1, scores_2, 0, 0 
 
 def query_pni_v2(temp1,temp2,entity_embeddings: nn.Module,
                  predicate_embeddings: nn.Module,
@@ -557,25 +571,15 @@ def query_pni_v2(temp1,temp2,entity_embeddings: nn.Module,
                  t_norm: Callable[[Tensor, Tensor], Tensor],
                  negation: Callable[[Tensor], Tensor]) -> Tensor:
 
-    scores_1 = query_2pn(entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
+    scores_1 = query_2pn(temp1,temp2,entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
                          queries=queries[:, 0:3], scoring_function=scoring_function, k=k,
                          t_norm=t_norm, negation=negation)
     scores_2 = query_1p(entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
                         queries=queries[:, 4:6], scoring_function=scoring_function)
 
-#added by DM
-    scores_1_original = torch.clone(scores_1)
-    scores_2_original = torch.clone(scores_2)
-
-
-    def customSoftmax(x,exponent,dim):
-        e=torch.exp(x*exponent)
-        return e/torch.sum(e,dim)
-
-
 
     res = t_norm(scores_1, scores_2)
-    return res
+    return res, scores_1, scores_2, 0, 0 
 
 
 def query_2u_dnf(entity_embeddings: nn.Module,

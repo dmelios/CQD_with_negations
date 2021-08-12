@@ -454,7 +454,7 @@ class CQD(nn.Module):
                                           scoring_function=scoring_function,
                                           k=self.k, t_norm=t_norm, negation=negation)
                 elif graph_type == "pni":
-                    scores, scores_1, scores_2, scores_1_original, scores_2_original,  = d2.query_pni_v2(temp1=self.temp1,temp2=self.temp2,entity_embeddings=self.embeddings[0],
+                    scores, scores_1, scores_2, scores_1_original, scores_2_original,  = d2.query_pni_v1(temp1=self.temp1,temp2=self.temp2,entity_embeddings=self.embeddings[0],
                                              predicate_embeddings=self.embeddings[1],
                                              queries=queries,
                                              scoring_function=scoring_function,
