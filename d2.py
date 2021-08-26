@@ -125,16 +125,22 @@ def query_2p(entity_embeddings: nn.Module,
     
     
     #DM test - works improvement of test set 
-    soft = torch.nn.Softmax(dim=1) 
+    soft = torch.nn.Softmax(dim=2) 
     # atom1_k_scores_2d=soft(atom1_k_scores_2d)
 
-    atom2_scores_2d=soft(atom2_scores_2d)
+    #best performance with only score2 softmaxed    
+    # atom2_scores_2d=soft(atom2_scores_2d)
 
 
     # [B, K] -> [B, K, N]
     atom1_scores_3d = atom1_k_scores_2d.reshape(batch_size, -1, 1).repeat(1, 1, nb_entities)
     # [B * K, N] -> [B, K, N]
     atom2_scores_3d = atom2_scores_2d.reshape(batch_size, -1, nb_entities)
+    
+    
+    #best only softmax score2
+    # atom1_scores_3d = soft(atom1_scores_3d)
+    atom2_scores_3d = soft(atom2_scores_3d)
 
     res = t_norm(atom1_scores_3d, atom2_scores_3d)
 
@@ -506,8 +512,8 @@ def query_inp(temp1,temp2,entity_embeddings: nn.Module,
     scores_2 = scores_2.reshape(batch_size, nb_entities, nb_entities)
 
   
-    #added by DM
-    scores_2=customSoftmax(scores_2,temp1,dim=1)  
+    #added by DM H@10 10.5 after softmax score2, 11.8 without
+    # scores_2=customSoftmax(scores_2,temp1,dim=1)  
 
     res = t_norm(scores_1, scores_2)
     res, _ = torch.max(res, dim=1)
@@ -554,10 +560,14 @@ def query_pni_v1(temp1,temp2,entity_embeddings: nn.Module,
     scores_2 = query_1p(entity_embeddings=entity_embeddings, predicate_embeddings=predicate_embeddings,
                         queries=queries[:, 4:6], scoring_function=scoring_function)
 
+
+    # print(scores_1.shape,scores_2.shape)   #both 1,14505   dim=1 is correct
     # scores_1 = negation(scores_1)
     #score 1 negated
     scores_1=customSoftmax(scores_1,temp2,dim=1) 
-    scores_2=customSoftmax(scores_2,temp1,dim=1) 
+    
+    #if you softmax 1p scores gets worse 0 weird
+    # scores_2=customSoftmax(scores_2,temp1,dim=1) 
 
     res = t_norm(scores_1, scores_2)
     # return res

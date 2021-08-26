@@ -650,23 +650,23 @@ class KGReasoning(nn.Module):
         
         
         #open text files and generate triples stripping empty spaces
-        train_triples =[]
-        with open('c:/Users/D/Documents/CSML/Project/KGReasoning/data/FB15k-237-betae/train.txt') as train:
-            for line in train.readlines():
-                s, p, o = line.split('\t')
-                train_triples += [(s.strip(), p.strip(), o.strip())]
+        # train_triples =[]
+        # with open('c:/Users/D/Documents/CSML/Project/KGReasoning/data/FB15k-237-betae/train.txt') as train:
+        #     for line in train.readlines():
+        #         s, p, o = line.split('\t')
+        #         train_triples += [(s.strip(), p.strip(), o.strip())]
                     
-        test_triples =[]     
-        with open('c:/Users/D/Documents/CSML/Project/KGReasoning/data/FB15k-237-betae/test.txt') as test:
-            for line in test.readlines():
-                s, p, o = line.split('\t')
-                test_triples += [(s.strip(), p.strip(), o.strip())]
+        # test_triples =[]     
+        # with open('c:/Users/D/Documents/CSML/Project/KGReasoning/data/FB15k-237-betae/test.txt') as test:
+        #     for line in test.readlines():
+        #         s, p, o = line.split('\t')
+        #         test_triples += [(s.strip(), p.strip(), o.strip())]
         
-        valid_triples =[]
-        with open('c:/Users/D/Documents/CSML/Project/KGReasoning/data/FB15k-237-betae/valid.txt') as valid:
-            for line in valid.readlines():
-                s, p, o = line.split('\t')
-                valid_triples += [(s.strip(), p.strip(), o.strip())]
+        # valid_triples =[]
+        # with open('c:/Users/D/Documents/CSML/Project/KGReasoning/data/FB15k-237-betae/valid.txt') as valid:
+        #     for line in valid.readlines():
+        #         s, p, o = line.split('\t')
+        #         valid_triples += [(s.strip(), p.strip(), o.strip())]
        
 
 
